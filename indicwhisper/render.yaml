@@ -2,11 +2,15 @@ services:
   - type: web
     name: ai4bharat-indicwhisper
     runtime: docker
-    rootDir: public/model/indicwhisper
+    rootDir: indicwhisper
     dockerfilePath: Dockerfile
-    plan: starter
+    plan: standard
     healthCheckPath: /health
     envVars:
       - key: INDIC_MODEL_ID
         value: ai4bharat/indicwav2vec-hindi
+      - key: HF_TOKEN
+        sync: false
+      - key: TRANSCRIPTION_API_KEY
+        sync: false
 

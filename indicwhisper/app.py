@@ -24,16 +24,16 @@ class IndicTranscriber:
 
     def load_models(self):
         logger.info(f"Loading Indic ASR model: {MODEL_ID} on {self.device}...")
+        hf_token = os.environ.get("HF_TOKEN")
         try:
             from transformers import AutoModelForCTC, AutoProcessor
-            self.processor = AutoProcessor.from_pretrained(MODEL_ID)
-            self.model = AutoModelForCTC.from_pretrained(MODEL_ID).to(self.device)
+            self.processor = AutoProcessor.from_pretrained(MODEL_ID, token=hf_token)
+            self.model = AutoModelForCTC.from_pretrained(MODEL_ID, token=hf_token).to(self.device)
             self.model.eval()
             logger.info("Indic ASR model loaded successfully.")
         except Exception as e:
             logger.error(f"Failed to load Indic model: {e}")
 
-        hf_token = os.environ.get("HF_TOKEN")
         if hf_token:
             logger.info("Loading Pyannote Diarization for Indic pipeline...")
             try:
@@ -141,15 +141,36 @@ transcriber = IndicTranscriber()
 def startup():
     transcriber.load_models()
 
+@app.get("/")
+def root():
+    return {
+        "service": "AI4Bharat Indic ASR Service",
+        "status": "ready" if transcriber.model is not None else "initializing_or_error",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
 @app.get("/health")
 def health():
-    return {"status": "healthy", "model": MODEL_ID, "device": transcriber.device}
+    is_loaded = transcriber.model is not None and transcriber.processor is not None
+    return {
+        "status": "healthy" if is_loaded else "unhealthy",
+        "model_loaded": is_loaded,
+        "model": MODEL_ID,
+        "device": transcriber.device
+    }
 
 @app.post("/transcribe")
 async def api_transcribe(file: UploadFile = File(...), authorization: Optional[str] = Header(None)):
     secret_key = os.environ.get("TRANSCRIPTION_API_KEY")
     if secret_key and authorization != f"Bearer {secret_key}":
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if transcriber.model is None or transcriber.processor is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Model is not loaded. Please ensure HF_TOKEN is configured and model access is granted on Hugging Face."
+        )
 
     content = await file.read()
     suffix = os.path.splitext(file.filename or "")[1] or ".wav"
