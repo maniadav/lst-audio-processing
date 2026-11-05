@@ -1,0 +1,14 @@
+services:
+  indicwhisper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: indicwhisper-local
+    ports:
+      - "8002:8000"
+    environment:
+      - INDIC_MODEL_ID=ai4bharat/indicwav2vec-hindi
+      - HF_TOKEN=${HF_TOKEN:-}
+      - TRANSCRIPTION_API_KEY=${TRANSCRIPTION_API_KEY:-}
+    restart: unless-stopped
+
