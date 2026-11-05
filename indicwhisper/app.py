@@ -15,6 +15,17 @@ logger = logging.getLogger("indicwhisper-service")
 MODEL_ID = os.environ.get("INDIC_MODEL_ID", "ai4bharat/indicwav2vec-hindi")
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
+def get_hf_token() -> Optional[str]:
+    raw_token = (
+        os.environ.get("HF_TOKEN")
+        or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+        or os.environ.get("HUGGINGFACE_TOKEN")
+    )
+    if raw_token:
+        cleaned = raw_token.strip()
+        return cleaned if cleaned else None
+    return None
+
 class IndicTranscriber:
     def __init__(self):
         self.device = DEVICE
@@ -25,7 +36,7 @@ class IndicTranscriber:
 
     def load_models(self):
         logger.info(f"Loading Indic ASR model: {MODEL_ID} on {self.device}...")
-        hf_token = os.environ.get("HF_TOKEN")
+        hf_token = get_hf_token()
         try:
             from transformers import AutoModelForCTC, AutoProcessor
             self.processor = AutoProcessor.from_pretrained(MODEL_ID, token=hf_token)
@@ -144,24 +155,26 @@ transcriber = IndicTranscriber()
 def startup():
     transcriber.load_models()
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
+    hf_token = get_hf_token()
     return {
         "service": "AI4Bharat Indic ASR Service",
         "status": "ready" if transcriber.model is not None else "initializing_or_error",
-        "hf_token_configured": bool(os.environ.get("HF_TOKEN")),
+        "hf_token_configured": bool(hf_token),
         "load_error": transcriber.load_error,
         "docs": "/docs",
         "health": "/health"
     }
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     is_loaded = transcriber.model is not None and transcriber.processor is not None
+    hf_token = get_hf_token()
     return {
         "status": "healthy" if is_loaded else "unhealthy",
         "model_loaded": is_loaded,
-        "hf_token_configured": bool(os.environ.get("HF_TOKEN")),
+        "hf_token_configured": bool(hf_token),
         "load_error": transcriber.load_error,
         "model": MODEL_ID,
         "device": transcriber.device
