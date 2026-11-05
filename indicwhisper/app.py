@@ -21,6 +21,7 @@ class IndicTranscriber:
         self.model = None
         self.processor = None
         self.diarize_model = None
+        self.load_error = None
 
     def load_models(self):
         logger.info(f"Loading Indic ASR model: {MODEL_ID} on {self.device}...")
@@ -30,8 +31,10 @@ class IndicTranscriber:
             self.processor = AutoProcessor.from_pretrained(MODEL_ID, token=hf_token)
             self.model = AutoModelForCTC.from_pretrained(MODEL_ID, token=hf_token).to(self.device)
             self.model.eval()
+            self.load_error = None
             logger.info("Indic ASR model loaded successfully.")
         except Exception as e:
+            self.load_error = f"{type(e).__name__}: {str(e)}"
             logger.error(f"Failed to load Indic model: {e}")
 
         if hf_token:
@@ -146,6 +149,8 @@ def root():
     return {
         "service": "AI4Bharat Indic ASR Service",
         "status": "ready" if transcriber.model is not None else "initializing_or_error",
+        "hf_token_configured": bool(os.environ.get("HF_TOKEN")),
+        "load_error": transcriber.load_error,
         "docs": "/docs",
         "health": "/health"
     }
@@ -156,6 +161,8 @@ def health():
     return {
         "status": "healthy" if is_loaded else "unhealthy",
         "model_loaded": is_loaded,
+        "hf_token_configured": bool(os.environ.get("HF_TOKEN")),
+        "load_error": transcriber.load_error,
         "model": MODEL_ID,
         "device": transcriber.device
     }
