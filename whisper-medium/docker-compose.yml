@@ -1,0 +1,15 @@
+services:
+  whisper-medium:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: whisper-medium-local
+    ports:
+      - "8001:8000"
+    environment:
+      - WHISPER_MODEL=medium
+      - COMPUTE_TYPE=int8
+      - HF_TOKEN=${HF_TOKEN:-}
+      - TRANSCRIPTION_API_KEY=${TRANSCRIPTION_API_KEY:-}
+    restart: unless-stopped
+
