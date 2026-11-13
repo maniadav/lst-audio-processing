@@ -66,6 +66,14 @@ class IndicTranscriber:
         cmd = ["ffmpeg", "-y", "-i", in_path, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", out_path]
         subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
+    def _decode_logits(self, logits):
+        from transformers import Wav2Vec2ProcessorWithLM
+
+        if isinstance(self.processor, Wav2Vec2ProcessorWithLM):
+            return self.processor.batch_decode(logits.cpu().numpy()).text[0].strip()
+        pred_ids = torch.argmax(logits, dim=-1)
+        return self.processor.batch_decode(pred_ids)[0].strip()
+
     def transcribe(self, audio_bytes: bytes, audio_suffix: str) -> dict:
         processing_start = time.time()
         file_size_bytes = len(audio_bytes)
@@ -114,8 +122,7 @@ class IndicTranscriber:
                 inputs = self.processor(seg_wave.squeeze().numpy(), sampling_rate=16000, return_tensors="pt").input_values.to(self.device)
                 with torch.no_grad():
                     logits = self.model(inputs).logits
-                pred_ids = torch.argmax(logits, dim=-1)
-                transcription = self.processor.batch_decode(pred_ids)[0].strip()
+                transcription = self._decode_logits(logits)
 
                 if not transcription:
                     continue
@@ -200,4 +207,3 @@ async def api_transcribe(file: UploadFile = File(...), authorization: Optional[s
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=False)
-
