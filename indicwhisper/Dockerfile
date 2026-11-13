@@ -13,14 +13,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 RUN pip install --no-cache-dir \
-    torch==2.1.2 \
-    torchaudio==2.1.2 \
+    torch==2.2.2 \
+    torchaudio==2.2.2 \
     --index-url https://download.pytorch.org/whl/cpu
 
 RUN pip install --no-cache-dir \
     fastapi \
     uvicorn \
     python-multipart \
+    torch==2.2.2 \
+    torchaudio==2.2.2 \
     transformers==4.44.2 \
     'numpy<2' \
     soundfile \
@@ -28,7 +30,7 @@ RUN pip install --no-cache-dir \
     kenlm==0.3.0 \
     pyannote.audio==3.3.2
 
-RUN python -c "import kenlm, pyctcdecode; from transformers import Wav2Vec2ProcessorWithLM"
+RUN pip check && python -c "import kenlm, pyctcdecode, torchaudio; from pyannote.audio import Pipeline; from transformers import Wav2Vec2ProcessorWithLM; assert hasattr(torchaudio, 'AudioMetaData')"
 
 COPY app.py /app/app.py
 
